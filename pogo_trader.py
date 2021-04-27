@@ -5,8 +5,8 @@ import pytesseract as tes
 import cv2
 import numpy as np
 from time import sleep
-# from multiprocessing import Pool, Process
-import threading
+from multiprocessing import Process
+# import threading
 
 ###
 # parameters
@@ -30,7 +30,7 @@ def get_screen_text(device):
     im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
     gray = get_grayscale(im_sc)
     thresh = thresholding(gray)
-    ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT)
+    ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT, lang='eng+ger', config='--psm 6')
     text_list = ocr['text']
     text_string = ''.join(text_list)
     return(text_string, ocr)
@@ -52,7 +52,7 @@ def get_screencap(device):
 def get_screen_targets(im_sc, im_target):
   # search for target on screen
   targets = cv2.matchTemplate(im_sc, im_target, cv2.TM_CCOEFF_NORMED)
-  targets = np.where(targets >= 0.90)
+  targets = np.where(targets >= 0.80)
   return(targets)
 
 def scan_im(device, im_target):
@@ -74,13 +74,10 @@ def get_grayscale(image):
 #thresholding
 def thresholding(image):
   # return cv2.threshold(image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-  return cv2.threshold(image, 230, 255, cv2.THRESH_BINARY)[1]
+  return cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)[1]
 
 
-def screen_character(device):
-  # wait until screen matches
-  s_target = 'SENDGIFTBATTLETRADE'
-  ocr = scan_text(device, s_target)
+def screen_character(device, ocr):
   # tap trade button
   words = ocr['text']
   for idx, word in enumerate(words):
@@ -90,53 +87,56 @@ def screen_character(device):
       pos_y = int(ocr['top'][idx_target] -10)
       pos = (pos_x, pos_y)
       action_tap(device, pos)
-  # move on to pokemon selection
-  screen_pokemon_select(device)
 
 def screen_pokemon_select(device):
-  s_target = 'POKEMONQ('
-  ocr = scan_text(device, s_target)
   # tap first target pokemon
   path_target = 'res/pogo_target_healthbar.png'
   im_target = cv2.imread(path_target)
   target_pos = get_im_pos(device, im_target)
   # tap pokeman
   action_tap(device, target_pos)
-  # move on to pokemon confirmation 1
-  screen_pokemon_confirmation_1(device)
 
-def screen_pokemon_confirmation_1(device):
-  # find "NEXT" button
+# # ocr
+# def screen_pokemon_confirmation_1(device, ocr):
+#   # tap "NEXT" button
+#   words = ocr['text']
+#   for idx, word in enumerate(words):
+#     if word == 'NEXT':
+#       idx_target = idx
+#       pos_x = int(ocr['left'][idx_target])
+#       pos_y = int(ocr['top'][idx_target])
+#       pos = (pos_x, pos_y)
+#       action_tap(device, pos)
+
+# image detection
+def screen_pokemon_confirmation_1(device, im_sc):
+  # tap "NEXT" button
   path_target = 'res/pogo_target_next.png'
   im_target = cv2.imread(path_target)
-  target_pos = scan_im(device, im_target)
-  # press "NEXT" button
+  target_pos = get_im_pos(device, im_target)
+  # tap pokeman
   action_tap(device, target_pos)
-  # move on to pokemon confirmation 2
-  screen_pokemon_confirmation_2(device)
 
-def screen_pokemon_confirmation_2(device):
-  # find "CONFIRM" button
-  path_target = 'res/pogo_target_confirm.png'
-  im_target = cv2.imread(path_target)
-  target_pos = scan_im(device, im_target)
-  # press "CONFIRM" button
-  action_tap(device, target_pos)
-  # move on to pokemon received screen
-  screen_pokemon_received(device)
-
+def screen_pokemon_confirmation_2(device, ocr):
+  # tap "CONFIRM" button
+  words = ocr['text']
+  for idx, word in enumerate(words):
+    if word == 'CONFIRM':
+      idx_target = idx
+      pos_x = int(ocr['left'][idx_target])
+      pos_y = int(ocr['top'][idx_target])
+      pos = (pos_x, pos_y)
+      action_tap(device, pos)
+      # prevent confirm - cancel loop
+      sleep(2)
 
 def screen_pokemon_received(device):
-  s_target = 'STARDUSTS'
-  ocr = scan_text(device, s_target)
   # find "X" button
   path_target = 'res/pogo_target_x.png'
   im_target = cv2.imread(path_target)
   target_pos = get_im_pos(device, im_target)
   # press "X" button
   action_tap(device, target_pos)
-  # move on to character screen
-  screen_character(device)
 
 def get_im_pos(device, im_target):
   # get screen from device
@@ -145,7 +145,7 @@ def get_im_pos(device, im_target):
   # search for target on screen
   target_shape = im_target.shape
   targets = cv2.matchTemplate(im_sc, im_target, cv2.TM_CCOEFF_NORMED)
-  targets = np.where(targets >= 0.90)
+  targets = np.where(targets >= 0.80)
   # target is the first rectangle
   target_pos_x = int(targets[1][0] + 0.5*target_shape[1])
   target_pos_y = int(targets[0][0] + 0.5*target_shape[0])
@@ -157,24 +157,36 @@ def bot_trader(device, dict_targets):
   s_target_character_screen = dict_targets['t_cs']
   s_target_pokemon_select = dict_targets['t_ps']
   s_target_pokemon_received = dict_targets['t_pr']
-  # image targets
+  # s_target_next = dict_targets['t_n']
   im_target_next = dict_targets['t_n']
-  im_target_confirm = dict_targets['t_c']
+  s_target_confirm = dict_targets['t_c']
   # iterate over screens
   while True:
     # get ocr and screencap
-    text_string, _ = get_screen_text(device)
+    text_string, ocr = get_screen_text(device)
     im_sc = get_screencap(device)
     if s_target_character_screen in text_string:
-      screen_character(device)
+      try:
+        screen_character(device, ocr)
+      except IndexError:
+        pass
     elif s_target_pokemon_select in text_string:
-      screen_pokemon_select(device)
+      try:
+        screen_pokemon_select(device)
+      except IndexError:
+        pass
     elif len(get_screen_targets(im_sc, im_target_next)[0]) > 0:
-      screen_pokemon_confirmation_1(device)
-    elif len(get_screen_targets(im_sc, im_target_confirm)[0]) > 0:
-      screen_pokemon_confirmation_2(device)
+      screen_pokemon_confirmation_1(device, im_sc)
+    elif s_target_confirm in text_string:
+      try:
+        screen_pokemon_confirmation_2(device, ocr)
+      except IndexError:
+        pass
     elif s_target_pokemon_received in text_string:
-      screen_pokemon_received(device)
+      try:
+        screen_pokemon_received(device)
+      except IndexError:
+        pass
     else:
       sleep(0.1)
 
@@ -187,25 +199,27 @@ def main(client):
     dev_acc1 = client.device(ip_acc1)
     dev_acc2 = client.device(ip_acc2)
 
-    # text targets
+    # targets
     s_target_character_screen = 'SENDGIFTBATTLETRADE'
     s_target_pokemon_select = 'POKEMONQ('
-    s_target_pokemon_received = 'STARDUSTS'
-    # image targets
+    s_target_pokemon_received = 'STARDUST'
+    # s_target_next = 'NEXT'
     path_target_next = 'res/pogo_target_next.png'
     im_target_next = cv2.imread(path_target_next)
-    path_target_confirm = 'res/pogo_target_confirm.png'
-    im_target_confirm = cv2.imread(path_target_confirm)
+    s_target_confirm = 'CONFIRM'
     # combine targets
     dict_targets = {
       't_cs': s_target_character_screen,
       't_ps': s_target_pokemon_select,
       't_pr': s_target_pokemon_received,
       't_n': im_target_next,
-      't_c': im_target_confirm,
+      't_c': s_target_confirm,
     }
-  # run bot
-    bot_trader(dev_acc1, dict_targets)
+    # run bots
+    p_acc1 = Process(target=bot_trader, args=(dev_acc1, dict_targets,))
+    p_acc2 = Process(target=bot_trader, args=(dev_acc2, dict_targets,))
+    p_acc1.start()
+    p_acc2.start()
   elif len(devices) < 2:
     print('Less than 2 devices found!')
   else:

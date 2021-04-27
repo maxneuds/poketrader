@@ -33,9 +33,13 @@ def get_screen_text(device):
 
     cv2.imwrite('cv_out.png', thresh)
 
-    ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT)
+    ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT, lang='eng+ger', config='--psm 6')
+    print(ocr)
+
     text_list = ocr['text']
     text_string = ''.join(text_list)
+
+    print(text_string)
     return(text_string, ocr)
 
 # get grayscale image
