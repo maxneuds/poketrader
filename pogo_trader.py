@@ -15,10 +15,10 @@ from multiprocessing import Process
 
 ss_def = '!legendary&!mythical&!shiny&!4*&!☆&!⓪&!①&!②&'
 # account 1
-ip_acc1 = '192.168.1.30:5555'
+ip_acc1 = '192.168.10.2:5555'
 ss_acc1 = f'{ss_def}'
 # account 2
-ip_acc2 = '192.168.1.31:5555'
+ip_acc2 = '192.168.10.1:5555'
 ss_acc2 = f'{ss_def}chansey'
 
 ###
@@ -90,38 +90,52 @@ def thresholding(image, inv=True):
     return cv2.threshold(image, 200, 255, cv2.THRESH_BINARY)[1]
 
 
-def screen_character(device, ocr):
-  # tap trade button
-  words = ocr['text']
-  for idx, word in enumerate(words):
-    if word == 'GIFT' and words[idx + 1] == 'BATTLE' and words[idx + 2] == 'TRADE':
-      idx_target = idx + 2
-      pos_x = int(ocr['left'][idx_target] + 10)
-      pos_y = int(ocr['top'][idx_target] - 10)
-      pos = (pos_x, pos_y)
-      action_tap(device, pos)
-      # move on to pokemon selection
-      sleep(2)
-      screen_pokemon_select(device)
+def screen_character(device):
+  ocr_target = 'TRADE'
+  target_found = False
+  inv = False
+  # iterate over screens
+  while not target_found:
+    # get ocr and screencap
+    text_string, ocr = get_screen_text(device, inv = inv)
+    inv = not inv
+    target_found = ocr_target in text_string
+    if target_found:
+      print('Character screen found!')
+      words = ocr['text']
+      for idx, word in enumerate(words):
+        if word == 'TRADE':
+          # tap trade button
+          pos_x = int(ocr['left'][idx] + 10)
+          pos_y = int(ocr['top'][idx] - 10)
+          pos = (pos_x, pos_y)
+          action_tap(device, pos)
+          # move on to pokemon selection
+          sleep(2)
+          screen_pokemon_select(device)
+    else:
+      print('Character screen not found!')
 
 
 def screen_pokemon_select(device):
   ocr_target = 'qautotrade'
   target_found = False
+  inv = True
   # iterate over screens
   while not target_found:
     # get ocr and screencap
-    text_string, ocr = get_screen_text(device)
+    text_string, ocr = get_screen_text(device, inv = inv)
+    inv = not inv
     text_string = text_string.lower()
     target_found = ocr_target in text_string
     if target_found:
       print('Pokemon selection screen found!')
-      sleep(0.25)
+      sleep(0.33)
       # tap first Pokemon
       words = ocr['text']
       words = [word.lower() for word in words]
       for idx, word in enumerate(words):
-        if word == 'q' and words[idx + 1] == 'autotrade':
+        if word == 'q' and words[idx + 1].startswith('autotrade'):
           idx_target = idx
           pos_x = int(ocr['left'][idx_target] - 20)
           pos_y = int(ocr['top'][idx_target])
@@ -129,13 +143,23 @@ def screen_pokemon_select(device):
           if pos_y > 500:
             print('Pokemon selection screen detected too early! Re-run.')
             target_found = False
-            break
+            continue
           pos_y += 400
           pos = (pos_x, pos_y)
           action_tap(device, pos)
-          # move on to pokemon confirmation 1 (next)
-          sleep(0.5)
-          screen_pokemon_confirmation_1(device)
+          sleep(1)
+      # confirm pokemon selected
+      # get ocr and screencap
+      text_string, ocr = get_screen_text(device)
+      text_string = text_string.lower()
+      target_found = ocr_target in text_string
+      if not target_found:
+        # move on to pokemon confirmation 1 (next)
+        print('move on to pokemon confirmation 1 (next)')
+        screen_pokemon_confirmation_1(device)
+        break
+      else:
+        target_found = False
     else:
       print('Pokemon selection screen not found!')
       sleep(0.5)
@@ -231,19 +255,12 @@ def get_im_pos(device, im_target):
 
 
 def bot_trader(device):
-  # text targets
-  ocr_target_character_screen = 'SENDGIFTBATTLETRADE'
-  # iterate over screens
   while True:
-    # get ocr and screencap
-    text_string, ocr = get_screen_text(device)
-    if ocr_target_character_screen in text_string:
-      print('Character selection screen detected!')
-      try:
-        screen_character(device, ocr)
-      except IndexError:
-        pass
-      sleep(0.2)
+    try:
+      screen_character(device)
+    except IndexError:
+      pass
+    sleep(0.2)
 
 
 def main(client):
