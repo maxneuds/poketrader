@@ -3,8 +3,9 @@ Auto trade pokemon on two android phones
 
 # Prerequirements
 
-- [Tesseract](https://tesseract-ocr.github.io/tessdoc/Downloads.html)
+- `ADB`: [Windows](https://androiddatahost.com/uq6us)
 - [Python (Miniconda)](https://docs.conda.io/en/latest/miniconda.html)
+- [Tesseract](https://tesseract-ocr.github.io/tessdoc/Downloads.html)
 
 Suggested setup:
 
@@ -13,6 +14,8 @@ conda create --name pokemon python=3.9
 ```
 
 # Installation
+
+Especially on windows, make sure that `adb`, `tesseract` (with English language support) and python are setup in `PATH`.
 
 ```bash
 conda activate pokemon
