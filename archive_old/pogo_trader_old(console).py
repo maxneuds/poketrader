@@ -1,5 +1,4 @@
-from os import lseek, _exit as exit
-from tkinter.tix import Tree
+from os import lseek
 from ppadb.client import Client as AdbClient
 from PIL import Image
 import pytesseract as tes
@@ -10,19 +9,7 @@ import sys
 from datetime import datetime as dt
 from time import sleep
 from multiprocessing import Process
-import subprocess as syscall
-import remi.gui as gui
-from remi import start, App
-
-# PIP
-# pip install opencv-python-headless numpy pytesseract pure-python-adb remi
-#
-
-
 # import threading
-
-# print = sg.Print
-
 
 ###
 # parameters
@@ -128,7 +115,6 @@ def screen_character(device, device_name):
           screen_pokemon_select(device, device_name)
     else:
       logger(device_name, 'Character screen not found!')
-      sleep(0.5)
 
 
 def screen_pokemon_select(device, device_name):
@@ -288,6 +274,27 @@ def bot_trader(device, device_name):
     sleep(0.2)
 
 
+def main(client):
+  devs = []
+  # connect to devices
+  for dev in devices:
+    if dev[0] == 'ip':
+      ip, port = dev[1].split(':')
+      client.remote_connect(ip, int(port))
+    device = client.device(dev[1])
+    dev_named = (device, dev[2])
+    devs.append(dev_named)
+  # verify both phones connected
+  if len(devices) >= 1:
+    print('Both devices found!')
+    # run bots
+    for dev in devs:
+      p_acc = Process(target=bot_trader, args=(dev[0], dev[1], ))
+      p_acc.start()
+  else:
+    print('Less than 2 devices found!')
+
+
 def action_tap(device, pos):
   cmd = f'input tap {pos[0]} {pos[1]}'
   device.shell(cmd)
@@ -298,104 +305,16 @@ def action_back(device):
   device.shell(cmd)
 
 
-def get_devdata(dev_con):
-  serialno = re.findall(
-      pattern=r": \[(.+)\]",
-      string=dev_con.shell("getprop | grep ro.serialno")
-  )[0]
-  # check if device is connected by usb
-  if not serialno.startswith("0123456789"):
-    name = re.findall(
-        pattern=r": \[(.+)\]",
-        string=dev_con.shell("getprop | grep ro.product.device")
-    )[0]
-    devdata = {"dev": dev_con, "name": name, "serialno": serialno}
-  else:
-    devdata = False
-  return(devdata)
-
-
-class PoketraderGUI(App):
-  def __init__(self, *args):
-    ###
-    # Device Setup
-    ###
-
-    # make sure adb is running
-    cmd = "adb devices"
-    out = syscall.call(cmd, shell=True)
-
-    # get all connected adb devices
-    self.client = AdbClient(host="127.0.0.1", port=5037)
-    devices = self.client.devices()
-    dev = devices[0]
-    self.devices = []
-    for dev in devices:
-      devdata = get_devdata(dev)
-      if devdata is not False:
-        self.devices.append(devdata)
-
-    # init GUI
-    super(PoketraderGUI, self).__init__(*args)
-
-  def main(self):
-    container = gui.VBox(width=300, height=200)
-
-    self.lbl_title = gui.Label("Poketrader")
-    self.lbl_title.style["font-size"] = "16px"
-    self.lbl_title.style["font-weight"] = "bold"
-
-    self.btn_start = gui.Button("Start Trader")
-    self.btn_start.style["background-color"] = "#4CAF50"
-    self.btn_start.style["border"] = "none"
-    self.btn_start.style["color"] = "white"
-    self.btn_start.style["padding"] = "15px 32px"
-    self.btn_start.style["text-align"] = "center"
-    self.btn_start.style["text-decoration"] = "none"
-    self.btn_start.style["display"] = "inline-block"
-    self.btn_start.style["font-size"] = "16px"
-    self.btn_start.style["box-shadow"] = "none"
-
-    self.checkboxes = {}
-    for dev in self.devices:
-      self.checkboxes[dev["serialno"]] = gui.CheckBoxLabel(
-          f"{dev['name']} ({dev['serialno']})",
-          checked=True)
-
-    # setting the listener for the onclick event of the button
-    self.btn_start.onclick.do(self.on_button_pressed)
-
-    # appending a widget to another, the first argument is a string key
-    container.append(self.lbl_title)
-    for key in self.checkboxes:
-      container.append(self.checkboxes[key])
-    container.append(self.btn_start)
-
-    # returning the root widget
-    return container
-
-  # listener function
-  def on_button_pressed(self, widget):
-    self.runner()
-
-  def runner(self):
-    # start traders
-    for dev in self.devices:
-      if self.checkboxes[dev["serialno"]].get_value() == True:
-        dev_name = f"{dev['name']} ({dev['serialno']})"
-        p_acc = Process(target=bot_trader, args=(dev["dev"], dev_name, ))
-        p_acc.daemon = True
-        p_acc.start()
-        logger(dev_name, "Start Trading!")
-
-
 if __name__ == '__main__':
-  start(
-      PoketraderGUI,
-      address='127.0.0.1',
-      port=8081,
-      multiple_instance=False,
-      enable_file_cache=True,
-      update_interval=0.1,
-      start_browser=True
-  )
+  # adb defaults
+  client = AdbClient(host="127.0.0.1", port=5037)
+  try:
+    main(client)
+  except KeyboardInterrupt:
+    try:
+      # disconnect everything
+      client.remote_disconnect()
+      # exit program
+      sys.exit(0)
+    except SystemExit:
+      os._exit(0)

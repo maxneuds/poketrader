@@ -32,8 +32,6 @@ Make sure to call the script with the correct python interpreter from the right 
 #!/bin/bash
 runner=/path/to/python
 script=/path/to/poketrader/pogo_trader.py
-adb devices
-sleep 1
 $runner $script
 ```
 
