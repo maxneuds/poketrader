@@ -179,6 +179,9 @@ def screen_pokemon_select(device, device_name):
       else:
         target_found = False
     else:
+      # reset limit after a while
+      if limit < 160:
+        limit = 200
       logger(device_name, 'Pokemon selection screen not found!')
       sleep(0.5)
 
