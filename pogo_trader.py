@@ -331,7 +331,6 @@ class PoketraderGUI(App):
     # get all connected adb devices
     self.client = AdbClient(host="127.0.0.1", port=5037)
     devices = self.client.devices()
-    dev = devices[0]
     self.devices = []
     for dev in devices:
       devdata = get_devdata(dev)
@@ -342,27 +341,32 @@ class PoketraderGUI(App):
     super(PoketraderGUI, self).__init__(*args)
 
   def main(self):
-    container = gui.VBox(width=300, height=200)
+    body = gui.BODY(style={"background-color": "#282a36"})
+    container = gui.VBox(width=300, height=200, style={"background-color": "#282a36"})
 
-    self.lbl_title = gui.Label("Poketrader")
+    self.lbl_title = gui.Label("Poketrader", style={"color": "#f8f8f2"})
     self.lbl_title.style["font-size"] = "16px"
     self.lbl_title.style["font-weight"] = "bold"
 
+    style_button = {
+        "background-color": "#4CAF50",
+        "border": "none",
+        "color": "white",
+        "padding": "15px 32px",
+        "text-align": "center",
+        "text-decoration": "none",
+        "display": "inline-block",
+        "font-size": "16px",
+        "box-shadow": "none",
+    }
     self.btn_start = gui.Button("Start Trader")
-    self.btn_start.style["background-color"] = "#4CAF50"
-    self.btn_start.style["border"] = "none"
-    self.btn_start.style["color"] = "white"
-    self.btn_start.style["padding"] = "15px 32px"
-    self.btn_start.style["text-align"] = "center"
-    self.btn_start.style["text-decoration"] = "none"
-    self.btn_start.style["display"] = "inline-block"
-    self.btn_start.style["font-size"] = "16px"
-    self.btn_start.style["box-shadow"] = "none"
+    self.btn_start.set_style(style_button)
 
     self.checkboxes = {}
     for dev in self.devices:
       self.checkboxes[dev["serialno"]] = gui.CheckBoxLabel(
           f"{dev['name']} ({dev['serialno']})",
+          style={"background-color": "#282a36", "color": "#f8f8f2"},  # comment color: #6272a4
           checked=True)
 
     # setting the listener for the onclick event of the button
@@ -375,7 +379,8 @@ class PoketraderGUI(App):
     container.append(self.btn_start)
 
     # returning the root widget
-    return container
+    body.append(container)
+    return body
 
   # listener function
   def on_button_pressed(self, widget):
@@ -396,7 +401,7 @@ if __name__ == '__main__':
   start(
       PoketraderGUI,
       address='127.0.0.1',
-      port=8081,
+      port=8420,
       multiple_instance=False,
       enable_file_cache=True,
       update_interval=0.1,
