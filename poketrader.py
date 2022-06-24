@@ -1,3 +1,4 @@
+from curses import beep
 from os import lseek, _exit as exit
 from ppadb.client_async import ClientAsync as AdbClient
 import pytesseract as tes
@@ -20,7 +21,7 @@ import asyncio
 
 
 ##
-## Utility Functions
+# Utility Functions
 ##
 
 
@@ -35,18 +36,18 @@ def logger_dev(dev_name, msg):
 
 
 async def syscall(cmd):
-    proc = await asyncio.create_subprocess_shell(
-        cmd,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE)
+  proc = await asyncio.create_subprocess_shell(
+      cmd,
+      stdout=asyncio.subprocess.PIPE,
+      stderr=asyncio.subprocess.PIPE)
 
-    stdout, stderr = await proc.communicate()
+  stdout, stderr = await proc.communicate()
 
-    logger("Connecting to adb...")
-    if stdout:
-        print(f'{stdout.decode()}')
-    if stderr:
-        print("Error! Couldn't connect to ADB!")
+  logger("Connecting to adb...")
+  if stdout:
+    print(f'{stdout.decode()}')
+  if stderr:
+    print("Error! Couldn't connect to ADB!")
 
 
 async def get_devdata(device):
@@ -68,7 +69,7 @@ async def get_devdata(device):
   return(devdata)
 
 ##
-## ADB UI Functions
+# ADB UI Functions
 ##
 
 
@@ -98,7 +99,7 @@ async def action_back(device):
 
 
 ##
-## OCR Functions
+# OCR Functions
 ##
 
 
@@ -152,14 +153,14 @@ def scan_im(device, im_target):
   return(target_pos)
 
 ##
-## Remi UI
+# Remi UI
 ##
 
 
 class PoketraderGUI(App):
   def __init__(self, *args):
     # Init Variables
-    self.p_traders = []
+    self.p_traders = {}
     # Init GUI
     super(PoketraderGUI, self).__init__(*args)
 
@@ -187,21 +188,28 @@ class PoketraderGUI(App):
     return(body)
 
   ##
-  ## Actions
+  # Actions
   ##
 
   def action_trader(self, widget):
     active = widget.kwargs["active"]
-    p_trader = widget.kwargs["p_trader"]
+    dev = widget.kwargs["dev"]
     name = widget.kwargs["name"]
+    serialno = widget.kwargs["serialno"]
     if not active:
+      # create process for action
+      p_trader = Process(target=bot_trader, args=(dev, name, ))
+      p_trader.daemon = True
+      self.p_traders[serialno] = p_trader
       p_trader.start()
       logger_dev(name, "Start Trading!")
       widget.set_style(style_button_green)
       widget.kwargs["active"] = True
     else:
+      p_trader = self.p_traders[serialno]
       p_trader.terminate()
       p_trader.join()
+      logger_dev(name, "Stop Trading!")
       widget.set_style(style_button_red)
       widget.kwargs["active"] = False
 
@@ -221,19 +229,15 @@ class PoketraderGUI(App):
           p.terminate()
           p.join()
     except Exception as e:
-      self.p_traders = []
+      self.p_traders = {}
     for dev in devices:
       # parse device data
       devdata = asyncio.run(get_devdata(dev))
       name = devdata["name"]
       serialno = devdata["serialno"]
-      # create process for action
-      p_trader = Process(target=bot_trader, args=(dev, name, ))
-      p_trader.daemon = True
-      self.p_traders.append(p_trader)
       # add everything to an action button for execution
       hbox = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
-      btn = gui.Button(f"{name} [{serialno}]", p_trader=p_trader, name=name, active=False)
+      btn = gui.Button(f"{name} [{serialno}]", dev=dev, name=name, serialno=serialno, active=False)
       btn.onclick.do(self.action_trader)
       btn.set_style(style_button_red)
       btn.set_size(150, 70)
@@ -248,7 +252,7 @@ class PoketraderGUI(App):
 
 
 ##
-## Execution Block
+# Execution Block
 ##
 
 if __name__ == '__main__':
