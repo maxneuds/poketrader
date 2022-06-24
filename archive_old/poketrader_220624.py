@@ -18,31 +18,57 @@ from remi import start, App
 # pip install opencv-python-headless numpy pytesseract pure-python-adb remi
 #
 
+##
+## Global Vars
+##
 
-# import threading
-
-# print = sg.Print
-
-
-###
-# parameters
-###
-
-# Account IPs
-devices = [
-    ('usb', 'cd4583ed', 'MaxPlus6'),
-    ('usb', '8820d65c', 'MaxF3'),
-    # ('usb', '5854231f', 'TomPlus6'),
-    # ('usb', '79b7887c', 'TomPlus9'),
-    # ('usb', '0ab57a89', 'MaxPlus8T'),
-]
-
-# counter
 count_traded = 0
 
-###
-# main
-###
+
+##
+## Utility Functions
+##
+
+
+def logger(dev_name, msg):
+  dt_now = dt.now().strftime("%H:%M:%S")
+  print(f'{dev_name}, {dt_now}: {msg}')
+
+
+def get_devdata(dev_con):
+  serialno = re.findall(
+      pattern=r": \[(.+)\]",
+      string=dev_con.shell("getprop | grep ro.serialno")
+  )[0]
+  # check if device is connected by usb
+  if not serialno.startswith("0123456789"):
+    name = re.findall(
+        pattern=r": \[(.+)\]",
+        string=dev_con.shell("getprop | grep ro.product.device")
+    )[0]
+    devdata = {"dev": dev_con, "name": name, "serialno": serialno}
+  else:
+    devdata = False
+  return(devdata)
+
+##
+## UI Functions
+##
+
+
+def action_tap(device, pos):
+  cmd = f'input tap {pos[0]} {pos[1]}'
+  device.shell(cmd)
+
+
+def action_back(device):
+  cmd = f'input keyevent 4'
+  device.shell(cmd)
+
+
+##
+## OCR Functions
+##
 
 
 def get_screen_text(device, limit=200, inv=True):
@@ -57,11 +83,8 @@ def get_screen_text(device, limit=200, inv=True):
   return(text_string, ocr)
 
 
-# get grayscale image
 def get_grayscale(image):
   return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-# thresholding
 
 
 def thresholding(image, limit=200, inv=True):
@@ -69,11 +92,6 @@ def thresholding(image, limit=200, inv=True):
     return cv2.threshold(image, limit, 255, cv2.THRESH_BINARY_INV)[1]
   else:
     return cv2.threshold(image, limit, 255, cv2.THRESH_BINARY)[1]
-
-
-def logger(dev_name, msg):
-  dt_now = dt.now().strftime("%H:%M:%S")
-  print(f'{dev_name}, {dt_now}: {msg}')
 
 
 def get_screencap(device):
@@ -101,6 +119,10 @@ def scan_im(device, im_target):
   target_pos_y = int(targets[0][0] + 0.5*target_shape[0])
   target_pos = (target_pos_x, target_pos_y)
   return(target_pos)
+
+##
+## Bot Functions
+##
 
 
 def screen_character(device, device_name):
@@ -262,21 +284,6 @@ def screen_pokemon_received(device, device_name):
       sleep(0.2)
 
 
-def get_im_pos(device, im_target):
-  # get screen from device
-  im_byte_array = device.screencap()
-  im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
-  # search for target on screen
-  target_shape = im_target.shape
-  targets = cv2.matchTemplate(im_sc, im_target, cv2.TM_CCOEFF_NORMED)
-  targets = np.where(targets >= 0.80)
-  # target is the first rectangle
-  target_pos_x = int(targets[1][0] + 0.5*target_shape[1])
-  target_pos_y = int(targets[0][0] + 0.5*target_shape[0])
-  target_pos = (target_pos_x, target_pos_y)
-  return(target_pos)
-
-
 def bot_trader(device, device_name):
   global count_traded
   while True:
@@ -290,32 +297,46 @@ def bot_trader(device, device_name):
       sys.exit(0)
     sleep(0.2)
 
-
-def action_tap(device, pos):
-  cmd = f'input tap {pos[0]} {pos[1]}'
-  device.shell(cmd)
-
-
-def action_back(device):
-  cmd = f'input keyevent 4'
-  device.shell(cmd)
+##
+## Remi UI
+##
 
 
-def get_devdata(dev_con):
-  serialno = re.findall(
-      pattern=r": \[(.+)\]",
-      string=dev_con.shell("getprop | grep ro.serialno")
-  )[0]
-  # check if device is connected by usb
-  if not serialno.startswith("0123456789"):
-    name = re.findall(
-        pattern=r": \[(.+)\]",
-        string=dev_con.shell("getprop | grep ro.product.device")
-    )[0]
-    devdata = {"dev": dev_con, "name": name, "serialno": serialno}
-  else:
-    devdata = False
-  return(devdata)
+style_button_default = {
+    "background-color": "#ffb86c",  # dracula orange
+    "border": "none",
+    "color": "#282a36",  # dracula background
+    "padding": "15px 32px",
+    "text-align": "center",
+    "text-decoration": "none",
+    "display": "inline-block",
+    "font-size": "16px",
+    "box-shadow": "none",
+}
+
+style_button_green = {
+    "background-color": "#50fa7b",  # dracula green
+    "border": "none",
+    "color": "#282a36",  # dracula background
+    "padding": "15px 32px",
+    "text-align": "center",
+    "text-decoration": "none",
+    "display": "inline-block",
+    "font-size": "16px",
+    "box-shadow": "none",
+}
+
+style_button_red = {
+    "background-color": "#ff5555",  # dracula red
+    "border": "none",
+    "color": "#282a36",  # dracula background
+    "padding": "15px 32px",
+    "text-align": "center",
+    "text-decoration": "none",
+    "display": "inline-block",
+    "font-size": "16px",
+    "box-shadow": "none",
+}
 
 
 class PoketraderGUI(App):
@@ -348,19 +369,11 @@ class PoketraderGUI(App):
     self.lbl_title.style["font-size"] = "16px"
     self.lbl_title.style["font-weight"] = "bold"
 
-    style_button = {
-        "background-color": "#4CAF50",
-        "border": "none",
-        "color": "white",
-        "padding": "15px 32px",
-        "text-align": "center",
-        "text-decoration": "none",
-        "display": "inline-block",
-        "font-size": "16px",
-        "box-shadow": "none",
-    }
     self.btn_start = gui.Button("Start Trader")
-    self.btn_start.set_style(style_button)
+    self.btn_start.set_style(style_button_green)
+
+    self.btn_start = gui.Button("Start Trader")
+    self.btn_start.set_style(style_button_green)
 
     self.checkboxes = {}
     for dev in self.devices:
@@ -384,9 +397,9 @@ class PoketraderGUI(App):
 
   # listener function
   def on_button_pressed(self, widget):
-    self.runner()
+    self.run_trades()
 
-  def runner(self):
+  def run_trades(self):
     # start traders
     for dev in self.devices:
       if self.checkboxes[dev["serialno"]].get_value() == True:
@@ -396,6 +409,10 @@ class PoketraderGUI(App):
         p_acc.start()
         logger(dev_name, "Start Trading!")
 
+
+##
+## Execution Block
+##
 
 if __name__ == '__main__':
   start(
