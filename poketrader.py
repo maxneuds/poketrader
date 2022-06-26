@@ -1,18 +1,9 @@
-from curses import beep
-from os import lseek, _exit as exit
-from ppadb.client_async import ClientAsync as AdbClient
-import pytesseract as tes
-import cv2
-import numpy as np
-import re
-import sys
 from datetime import datetime as dt
-from time import sleep
 from multiprocessing import Process
 import remi.gui as gui
 from remi import start, App
 from funs.styles import *
-from funs.ui_automation import bot_trader
+from funs.ui_automation import *
 import asyncio
 
 # PIP
@@ -34,123 +25,6 @@ def logger_dev(dev_name, msg):
   dt_now = dt.now().strftime("%H:%M:%S")
   print(f"[{dt_now}] [{dev_name}] {msg}")
 
-
-async def syscall(cmd):
-  proc = await asyncio.create_subprocess_shell(
-      cmd,
-      stdout=asyncio.subprocess.PIPE,
-      stderr=asyncio.subprocess.PIPE)
-
-  stdout, stderr = await proc.communicate()
-
-  logger("Connecting to adb...")
-  if stdout:
-    print(f'{stdout.decode()}')
-  if stderr:
-    print("Error! Couldn't connect to ADB!")
-
-
-async def get_devdata(device):
-  str_prop = await device.shell("getprop | grep ro.serialno")
-  serialno = re.findall(
-      pattern=r": \[(.+)\]",
-      string=str_prop
-  )[0]
-  # check if device is connected by usb
-  if not serialno.startswith("0123456789"):
-    str_prop = await device.shell("getprop | grep ro.product.device")
-    name = re.findall(
-        pattern=r": \[(.+)\]",
-        string=str_prop
-    )[0]
-    devdata = {"dev": device, "name": name, "serialno": serialno}
-  else:
-    devdata = False
-  return(devdata)
-
-##
-# ADB UI Functions
-##
-
-
-async def get_devices():
-  client = AdbClient(host="127.0.0.1", port=5037)
-  devices = await client.devices()
-  return(devices)
-
-
-def refresh_devices():
-  # make sure adb is running
-  cmd = "adb devices"
-  asyncio.run(syscall(cmd))
-  # get all connected devices
-  devices = asyncio.run(get_devices())
-  return(devices)
-
-
-async def action_tap(device, pos):
-  cmd = f"input tap {pos[0]} {pos[1]}"
-  await device.shell(cmd)
-
-
-async def action_back(device):
-  cmd = f"input keyevent 4"
-  await device.shell(cmd)
-
-
-##
-# OCR Functions
-##
-
-
-def get_screen_text(device, limit=200, inv=True):
-  # get screen from device
-  im_byte_array = device.screencap()
-  im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
-  gray = get_grayscale(im_sc)
-  thresh = thresholding(gray, limit, inv)
-  ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT, lang='eng', config='--psm 6')
-  text_list = ocr['text']
-  text_string = ''.join(text_list)
-  return(text_string, ocr)
-
-
-def get_grayscale(image):
-  return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-
-def thresholding(image, limit=200, inv=True):
-  if inv:
-    return cv2.threshold(image, limit, 255, cv2.THRESH_BINARY_INV)[1]
-  else:
-    return cv2.threshold(image, limit, 255, cv2.THRESH_BINARY)[1]
-
-
-def get_screencap(device):
-  # get screen from device
-  im_byte_array = device.screencap()
-  im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
-  return(im_sc)
-
-
-def get_screen_targets(im_sc, im_target):
-  # search for target on screen
-  targets = cv2.matchTemplate(im_sc, im_target, cv2.TM_CCOEFF_NORMED)
-  targets = np.where(targets >= 0.80)
-  return(targets)
-
-
-def scan_im(device, im_target):
-  targets = [[]]
-  while len(targets[0]) == 0:
-    im_sc = get_screencap(device)
-    targets = get_screen_targets(im_sc, im_target)
-  # target is the first rectangle
-  target_shape = im_target.shape
-  target_pos_x = int(targets[1][0] + 0.5*target_shape[1])
-  target_pos_y = int(targets[0][0] + 0.5*target_shape[0])
-  target_pos = (target_pos_x, target_pos_y)
-  return(target_pos)
 
 ##
 # Remi UI
@@ -214,7 +88,7 @@ class PoketraderGUI(App):
       widget.kwargs["active"] = False
 
   def action_refresh_devices(self, widget):
-    devices = refresh_devices()
+    devices = asyncio.run(refresh_devices())
     self.add_devices_to_gui(devices)
 
   def add_devices_to_gui(self, devices):
@@ -263,5 +137,5 @@ if __name__ == '__main__':
       multiple_instance=False,
       enable_file_cache=True,
       update_interval=0.1,
-      start_browser=False
+      start_browser=True
   )

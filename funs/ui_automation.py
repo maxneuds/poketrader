@@ -1,11 +1,13 @@
 import numpy as np
 import cv2
 import pytesseract as tes
+import re
 from datetime import datetime as dt
-from asyncio import sleep, run
+from asyncio import sleep, run, subprocess, create_subprocess_shell
+from ppadb.client_async import ClientAsync as AdbClient
 
 ##
-## Utility Functions
+# Utility Functions
 ##
 
 
@@ -19,8 +21,33 @@ def logger_dev(dev_name, msg):
   print(f"[{dt_now}] [{dev_name}] {msg}")
 
 ##
-## UI Functions
+# ADB Functions
 ##
+
+
+async def get_devices():
+  client = AdbClient(host="127.0.0.1", port=5037)
+  devices = await client.devices()
+  return(devices)
+
+
+async def refresh_devices():
+  # make sure adb is running
+  cmd = "adb devices"
+  # call connect to ADB server
+  proc = await create_subprocess_shell(
+      cmd,
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE)
+  stdout, stderr = await proc.communicate()
+  logger("Connecting to adb...")
+  if stdout:
+    print(f'{stdout.decode()}')
+  if stderr:
+    print("Error! Couldn't connect to ADB!")
+  # get all connected devices
+  devices = await get_devices()
+  return(devices)
 
 
 async def action_tap(device, pos):
@@ -33,9 +60,36 @@ async def action_back(device):
   await device.shell(cmd)
 
 
+async def get_screencap(device):
+  # get screen from device
+  im_byte_array = await device.screencap()
+  # convert to cv2 image
+  im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
+  return(im_sc)
+
+
+async def get_devdata(device):
+  str_prop = await device.shell("getprop | grep ro.serialno")
+  serialno = re.findall(
+      pattern=r": \[(.+)\]",
+      string=str_prop
+  )[0]
+  # check if device is connected by usb
+  if not serialno.startswith("0123456789"):
+    str_prop = await device.shell("getprop | grep ro.product.device")
+    name = re.findall(
+        pattern=r": \[(.+)\]",
+        string=str_prop
+    )[0]
+    devdata = {"dev": device, "name": name, "serialno": serialno}
+  else:
+    devdata = False
+  return(devdata)
+
 ##
-## OCR Functions
+# OCR Functions
 ##
+
 
 def get_grayscale(image):
   return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -48,19 +102,13 @@ def thresholding(image, limit=200, inv=True):
     return cv2.threshold(image, limit, 255, cv2.THRESH_BINARY)[1]
 
 
-async def get_screencap(device):
-  # get screen from device
-  im_byte_array = await device.screencap()
-  await sleep(0.5)
-  im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
-  return(im_sc)
-
-
 async def get_screen_text(device, limit=200, inv=True):
   # get screen from device
   im_sc = await get_screencap(device)
+  # transform to simple bw image
   gray = get_grayscale(im_sc)
   thresh = thresholding(gray, limit, inv)
+  # get screen text
   ocr = tes.image_to_data(thresh, output_type=tes.Output.DICT, lang='eng', config='--psm 6')
   text_list = ocr['text']
   text_string = ''.join(text_list)
@@ -87,7 +135,7 @@ def get_screen_targets(im_sc, im_target):
   return(targets)
 
 ##
-## Bot Functions
+# Bot Functions
 ##
 
 
