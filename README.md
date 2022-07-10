@@ -4,21 +4,29 @@ Auto trade pokemon on two android phones
 # Prerequirements
 
 - `ADB`: [Windows](https://androiddatahost.com/uq6us)
-- [Python (Miniconda)](https://docs.conda.io/en/latest/miniconda.html)
+- [Python 3.9+](https://www.python.org/downloads/)
 - [Tesseract](https://tesseract-ocr.github.io/tessdoc/Downloads.html)
-
-Suggested setup:
-
-```bash
-conda create --name pokemon python=3.9
-```
 
 # Installation
 
 Especially on windows, make sure that `adb`, `tesseract` (with English language support) and python are setup in `PATH`.
 
+First clone this repository.
+
 ```bash
-conda activate pokemon
+git clone https://github.com/maxneuds/poketrader.git
+```
+
+Then, create a new python `venv` in the app directory of `poketrader`.
+
+```bash
+python -m venv env
+```
+
+After that, activate the environment and install all required packages from the requirements file `req.txt`.
+
+```bash
+source env/bin/activate
 pip install -r req.txt
 ```
 
