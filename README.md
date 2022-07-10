@@ -34,19 +34,17 @@ pip install -r req.txt
 
 ## Linux
 
-Make sure to call the script with the correct python interpreter from the right `conda` or `pipenv` environment.
-
 ```bash
 #!/bin/bash
-runner=/path/to/python
-script=/path/to/poketrader/pogo_trader.py
-$runner $script
+$path_app=/path/to/poketrader
+source $path_app/env/bin/activate
+python $path_app/poketrader.py
 ```
 
 Also nice to bind the script to an alias.
 
 ```bash
-alias poketrade 'bash /home/max/.scripts/poketrade.sh'
+alias poketrade 'bash /path/to/runner.sh'
 ```
 
 ## Windows
@@ -58,7 +56,7 @@ Soon.
 ## PIP
 
 ```bash
-pip list --format=freeze > req.txt
+pip freeze > req.txt
 ```
 
 ## ADB
