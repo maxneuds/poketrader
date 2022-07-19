@@ -1,5 +1,13 @@
 # poketrader
-Auto trade pokemon on two android phones
+Auto trade Pokemon on two android phones
+
+# Usage
+
+0. Add all Pokemon which you want to trade into a tag which starts with `autotrade`.
+1. Start a normal trade, select the tag and trade one Pokemon.
+2. Be in character screen (with the trade button). This is the starting screen.
+3. Press `Refresh Device`.
+4. Start the trader on the device by clicking the corresponding button.
 
 # Prerequirements
 
@@ -36,9 +44,11 @@ pip install -r req.txt
 
 ```bash
 #!/bin/bash
-$path_app=/path/to/poketrader
-source $path_app/env/bin/activate
-python $path_app/poketrader.py
+dir_poketrader=/path/to/dir
+activate_script=env/bin/activate.fish
+cd $dir_poketrader
+source $activate_script
+python poketrader.py
 ```
 
 Also nice to bind the script to an alias.
@@ -49,7 +59,11 @@ alias poketrade 'bash /path/to/runner.sh'
 
 ## Windows
 
-Soon.
+```powershell
+cd C:\path_to_poketrader
+. .\env\Scripts\activate.ps1
+python poketrader.py
+```
 
 # Command Archive
 
