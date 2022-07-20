@@ -104,24 +104,29 @@ class PoketraderGUI(App):
           p.join()
     except Exception as e:
       self.p_traders = {}
+    count_dev = 0
     for dev in devices:
       # parse device data
       devdata = asyncio.run(get_devdata(dev))
-      name = devdata["name"]
-      serialno = devdata["serialno"]
-      # add everything to an action button for execution
-      hbox = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
-      btn = gui.Button(f"{name} [{serialno}]", dev=dev, name=name, serialno=serialno, active=False)
-      btn.onclick.do(self.action_trader)
-      btn.set_style(style_button_red)
-      btn.set_size(150, 70)
-      lbl = gui.Label("Traded: ", width=100, height=80, style=label_left_center)
-      hbox.append([btn, lbl])
-      # add button to container
-      self.container_btns_devices.append(hbox)
+      # add device if it could be parsed
+      if devdata:
+        name = devdata["name"]
+        serialno = devdata["serialno"]
+        # add everything to an action button for execution
+        hbox = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
+        btn = gui.Button(f"{name} [{serialno}]", dev=dev, name=name, serialno=serialno, active=False)
+        btn.onclick.do(self.action_trader)
+        btn.set_style(style_button_red)
+        btn.set_size(150, 70)
+        lbl = gui.Label("Traded: ", width=100, height=80, style=label_left_center)
+        hbox.append([btn, lbl])
+        # add button to container
+        self.container_btns_devices.append(hbox)
+        # count number of added devices for UI changes
+        count_dev += 1
     # update button container
-    self.container_btns_devices.set_size(400, len(devices) * 80)
-    self.container_body.set_size(400, len(devices) * 80 + 120)
+    self.container_btns_devices.set_size(400, count_dev * 80)
+    self.container_body.set_size(400, count_dev * 80 + 120)
     self.container_body.redraw()
 
 
