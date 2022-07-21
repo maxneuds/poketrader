@@ -40,21 +40,21 @@ class PoketraderGUI(App):
 
   def main(self):
     body = gui.BODY(style={"background-color": "#282a36"})
-    self.container_body = gui.VBox(width=400, height=200, style={"background-color": "#282a36"})
+    self.container_body = gui.VBox(width=440, height=200, style={"background-color": "#282a36"})
 
     self.lbl_title = gui.Label("Poketrader", style={"color": "#ff79c6"})
     self.lbl_title.style["font-size"] = "16px"
     self.lbl_title.style["font-weight"] = "bold"
 
     # Fixed Buttons
-    self.container_fixed_buttons = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
+    self.container_fixed_buttons = gui.HBox(width=440, height=80, style={"background-color": "#282a36"})
     btn_refresh = gui.Button("Refresh Devices")
     btn_refresh.set_style(style_button_default)
     btn_refresh.onclick.do(self.action_refresh_devices)
     self.container_fixed_buttons.append(btn_refresh)
 
     # Variable Buttons
-    self.container_btns_devices = gui.VBox(width=300, height=80, style={"background-color": "#282a36"})
+    self.container_btns_devices = gui.VBox(width=440, height=80, style={"background-color": "#282a36"})
 
     # return body
     self.container_body.append([self.lbl_title, self.container_fixed_buttons, self.container_btns_devices])
@@ -88,10 +88,10 @@ class PoketraderGUI(App):
       widget.kwargs["active"] = False
 
   def action_refresh_devices(self, widget):
-    devices = asyncio.run(refresh_devices())
-    self.add_devices_to_gui(devices)
+    dev_infos = asyncio.run(refresh_devices())
+    self.add_devices_to_gui(dev_infos)
 
-  def add_devices_to_gui(self, devices):
+  def add_devices_to_gui(self, dev_infos):
     self.container_btns_devices.empty()
     # if processes are running, terminate these
     # Todo: Could most likely be coded in a way
@@ -105,28 +105,29 @@ class PoketraderGUI(App):
     except Exception as e:
       self.p_traders = {}
     count_dev = 0
-    for dev in devices:
+    for key in dev_infos:
+      dev_info = dev_infos[key]
       # parse device data
-      devdata = asyncio.run(get_devdata(dev))
-      # add device if it could be parsed
-      if devdata:
-        name = devdata["name"]
-        serialno = devdata["serialno"]
-        # add everything to an action button for execution
-        hbox = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
-        btn = gui.Button(f"{name} [{serialno}]", dev=dev, name=name, serialno=serialno, active=False)
-        btn.onclick.do(self.action_trader)
-        btn.set_style(style_button_red)
-        btn.set_size(150, 70)
-        lbl = gui.Label("Traded: ", width=100, height=80, style=label_left_center)
-        hbox.append([btn, lbl])
-        # add button to container
-        self.container_btns_devices.append(hbox)
-        # count number of added devices for UI changes
-        count_dev += 1
+      dev = dev_info["dev"]
+      # add device to ui
+      name = dev_info["name"]
+      serialno = dev_info["serialno"]
+      con = dev_info["con"]
+      # add everything to an action button for execution
+      hbox = gui.HBox(width=300, height=80, style={"background-color": "#282a36"})
+      btn = gui.Button(f"{name} [{serialno}] [{con}]", dev=dev, name=name, serialno=serialno, active=False)
+      btn.onclick.do(self.action_trader)
+      btn.set_style(style_button_red)
+      btn.set_size(200, 70)
+      lbl = gui.Label("Traded: ", width=60, height=80, style=label_left_center)
+      hbox.append([btn, lbl])
+      # add button to container
+      self.container_btns_devices.append(hbox)
+      # count number of added devices for UI changes
+      count_dev += 1
     # update button container
-    self.container_btns_devices.set_size(400, count_dev * 80)
-    self.container_body.set_size(400, count_dev * 80 + 120)
+    self.container_btns_devices.set_size(440, count_dev * 80)
+    self.container_body.set_size(440, count_dev * 80 + 120)
     self.container_body.redraw()
 
 
