@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "poketrader"
+version = "1.0"
+description = "Autotrader for Pokemon GO"
+authors = ["Maximilian Neudert <max@neudert.me>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+numpy = "^2.1.1"
+opencv-python-headless = "^4.10.0.84"
+pillow = "^10.4.0"
+pure-python-adb = "^0.3.0.dev0"
+remi = "^2022.7.27"
+pytesseract = "^0.3.13"
+setuptools = "^74.1.2"
+aiofiles = "^24.1.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,12 +1,10 @@
-import sys
 import numpy as np
 import cv2
 import pytesseract as tes
 import re
 from datetime import datetime as dt
 from asyncio import sleep, run, subprocess, create_subprocess_shell
-from ppadb.client_async import ClientAsync as AdbClient  # lacks important information hence normal client also needed
-from ppadb.client import Client as AdbClientSync
+from ppadb.client_async import ClientAsync as AdbClient
 
 ##
 # Utility Functions
@@ -29,55 +27,8 @@ def logger_dev(dev_name, msg):
 
 async def get_devices():
   client = AdbClient(host="127.0.0.1", port=5037)
-  client_sync = AdbClientSync(host="127.0.0.1", port=5037)
-  devices_unchecked = client_sync.devices()
-  dev_infos = {}
-  # parse device info from sync client
-  for dev in devices_unchecked:
-    try:
-      str_serialno = dev.shell("getprop | grep ro.serialno")
-      serialno = re.findall(
-          pattern=r": \[(.+)\]",
-          string=str_serialno
-      )[0]
-      if dev.get_device_path().startswith("usb"):
-        con = "usb"
-      else:
-        con = "wifi"
-      # check is device is already added and if it's added choose wifi connection
-      dev_info = {"dev": dev, "con": con, "serialno": serialno}
-      if serialno in dev_infos:
-        if dev_infos[serialno]["con"] == "usb":
-          dev_infos[serialno] = dev_info
-      else:
-        dev_infos[serialno] = dev_info
-    except RuntimeError as e:
-      logger("Found offline device.")
-  # replace sync dev client with async dev client
-  devices_async = await client.devices()
-  for dev in devices_async:
-    try:
-      str_serialno = await dev.shell("getprop | grep ro.serialno")
-      serialno = re.findall(
-          pattern=r": \[(.+)\]",
-          string=str_serialno
-      )[0]
-      # replace sync with async
-      if serialno in dev_infos:
-        dev_infos[serialno]["dev"] = dev
-      # add device name for valid devices else remove device
-      if not serialno.startswith("0123456789"):
-        str_btname = await dev.shell("dumpsys bluetooth_manager | grep name")
-        name = re.findall(
-            pattern=r": (.*)",
-            string=str_btname
-        )[0]
-        dev_infos[serialno]["name"] = name
-      else:
-        dev_infos.pop(serialno)
-    except RuntimeError as e:
-      logger("Found offline device.")
-  return(dev_infos)
+  devices = await client.devices()
+  return(devices)
 
 
 async def refresh_devices():
@@ -95,8 +46,8 @@ async def refresh_devices():
   if stderr:
     print("Error! Couldn't connect to ADB!")
   # get all connected devices
-  dev_infos = await get_devices()
-  return(dev_infos)
+  devices = await get_devices()
+  return(devices)
 
 
 async def action_tap(device, pos):
@@ -116,6 +67,24 @@ async def get_screencap(device):
   im_sc = cv2.imdecode(np.frombuffer(bytes(im_byte_array), np.uint8), cv2.IMREAD_COLOR)
   return(im_sc)
 
+
+async def get_devdata(device):
+  str_prop = await device.shell("getprop | grep ro.serialno")
+  serialno = re.findall(
+      pattern=r": \[(.+)\]",
+      string=str_prop
+  )[0]
+  # check if device is connected by usb
+  if not serialno.startswith("0123456789"):
+    str_prop = await device.shell("getprop | grep ro.product.device")
+    name = re.findall(
+        pattern=r": \[(.+)\]",
+        string=str_prop
+    )[0]
+    devdata = {"dev": device, "name": name, "serialno": serialno}
+  else:
+    devdata = False
+  return(devdata)
 
 ##
 # OCR Functions
@@ -183,6 +152,7 @@ async def screen_pokemon_received(device, device_name):
     if target_found:
       logger_dev(device_name, 'Pokemon received screen detected!')
       # press back to exit
+      await sleep(2)
       await action_back(device)
       # move on to character screen (return with main loop)
     else:
@@ -211,7 +181,7 @@ async def screen_pokemon_confirmation_2(device, device_name):
           logger_dev(device_name, f'Tap CONFIRM button: {pos}')
           await action_tap(device, pos)
           # move on to pokemon received
-          await sleep(9)
+          await sleep(15)
           await screen_pokemon_received(device, device_name)
     else:
       await sleep(0.2)
@@ -260,7 +230,7 @@ async def screen_pokemon_select(device, device_name):
     target_found = ocr_target in text_string
     if target_found:
       logger_dev(device_name, 'Pokemon selection screen found!')
-      await sleep(0.33)
+      await sleep(0.60)
       # tap first Pokemon
       words = ocr['text']
       words = [word.lower() for word in words]
