@@ -1,9 +1,0 @@
-aiofiles==0.8.0
-numpy==1.23.1
-opencv-python-headless==4.6.0.66
-packaging==21.3
-Pillow==9.2.0
-pure-python-adb==0.3.0.dev0
-pyparsing==3.0.9
-pytesseract==0.3.9
-remi==2022.3.7
